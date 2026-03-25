@@ -1,7 +1,6 @@
 import streamlit as st
 import numpy as np
 import cv2
-from tensorflow.keras.preprocessing import image
 from PIL import Image
 from fpdf import FPDF
 import gdown
@@ -11,29 +10,27 @@ import tflite_runtime.interpreter as tflite
 # Page config
 st.set_page_config(page_title="Blood Group Detection", layout="centered")
 
-# ✅ Download TFLite model
+# ================= MODEL =================
 MODEL_PATH = "model.tflite"
 
 if not os.path.exists(MODEL_PATH):
-    url = "PASTE_YOUR_TFLITE_LINK_HERE"   # 🔥 replace with your tflite drive link
+    url = "PASTE_YOUR_TFLITE_LINK_HERE"   # 🔥 replace with your tflite link
     gdown.download(url, MODEL_PATH, quiet=False)
 
-# ✅ Load TFLite model
 interpreter = tflite.Interpreter(model_path=MODEL_PATH)
 interpreter.allocate_tensors()
 
 input_details = interpreter.get_input_details()
 output_details = interpreter.get_output_details()
 
-# Load labels
+# ================= LABELS =================
 with open("labels.txt") as f:
     class_labels = [line.strip() for line in f.readlines()]
 
-# Title
+# ================= UI =================
 st.markdown("<h1 style='text-align: center;'>🧬 Blood Group Detection System</h1>", unsafe_allow_html=True)
 st.markdown("---")
 
-# 👤 Patient Info
 col1, col2 = st.columns(2)
 
 with col1:
@@ -46,17 +43,16 @@ gender = st.selectbox("⚧ Gender", ["Male", "Female", "Other"])
 
 st.markdown("---")
 
-# Upload
 uploaded_file = st.file_uploader("🖐 Upload Fingerprint Image", type=["jpg", "png", "bmp"])
 
-# Button
+# ================= BUTTON =================
 if st.button("🔍 Predict Blood Group"):
 
     if uploaded_file is None or name == "":
         st.warning("Please fill all details and upload image")
 
     else:
-        # Convert to RGB
+        # Load image
         img = Image.open(uploaded_file).convert("RGB")
 
         col1, col2 = st.columns(2)
@@ -66,7 +62,7 @@ if st.button("🔍 Predict Blood Group"):
 
         img_array = np.array(img)
 
-        # Quality check
+        # ===== QUALITY CHECK =====
         gray = cv2.cvtColor(img_array, cv2.COLOR_RGB2GRAY)
         brightness = np.mean(gray)
         blur = cv2.Laplacian(gray, cv2.CV_64F).var()
@@ -81,13 +77,13 @@ if st.button("🔍 Predict Blood Group"):
             if blur < 100:
                 st.warning("⚠️ Image blurry")
 
-        # Preprocess
-        img = img.resize((128,128))
-        img_array = image.img_to_array(img)
-        img_array = np.expand_dims(img_array, axis=0) / 255.0
+        # ===== PREPROCESS (NO TENSORFLOW) =====
+        img = img.resize((128, 128))
+        img_array = np.array(img).astype("float32") / 255.0
+        img_array = np.expand_dims(img_array, axis=0)
 
-        # ✅ TFLite Prediction
-        interpreter.set_tensor(input_details[0]['index'], img_array.astype('float32'))
+        # ===== PREDICTION =====
+        interpreter.set_tensor(input_details[0]['index'], img_array)
         interpreter.invoke()
         prediction = interpreter.get_tensor(output_details[0]['index'])[0]
 
@@ -96,7 +92,7 @@ if st.button("🔍 Predict Blood Group"):
 
         st.markdown("---")
 
-        # Result
+        # ===== RESULT =====
         st.markdown("### 🧾 Result")
 
         st.success(f"🩸 Blood Group: {class_labels[best_idx]}")
@@ -109,7 +105,7 @@ if st.button("🔍 Predict Blood Group"):
         if confidence < 0.6:
             st.warning("⚠️ Model is not confident")
 
-        # Report
+        # ===== REPORT =====
         report = f"""
 Patient Name: {name}
 Age: {age}
@@ -126,7 +122,7 @@ Confidence: {confidence*100:.2f}%
             mime="text/plain"
         )
 
-        # PDF
+        # ===== PDF =====
         pdf = FPDF()
         pdf.add_page()
         pdf.set_font("Arial", size=12)
