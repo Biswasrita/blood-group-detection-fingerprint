@@ -6,11 +6,15 @@ from tensorflow.keras.preprocessing import image
 from PIL import Image
 from fpdf import FPDF
 import io
+import gdown
 
 # Page config
 st.set_page_config(page_title="Blood Group Detection", layout="centered")
 
 # Load model
+url = "https://drive.google.com/uc?id=1dNT1snMYv5Nv8LOOk6VEShN_bhip_JG_"
+gdown.download(url, "blood_group_model.h5", quiet=False)
+
 model = load_model("blood_group_model.h5")
 
 # Load labels
