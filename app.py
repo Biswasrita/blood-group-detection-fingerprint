@@ -1,25 +1,29 @@
 import streamlit as st
 import numpy as np
 import cv2
-import tensorflow as tf
 from tensorflow.keras.preprocessing import image
 from PIL import Image
 from fpdf import FPDF
 import gdown
 import os
+import tflite_runtime.interpreter as tflite
 
 # Page config
 st.set_page_config(page_title="Blood Group Detection", layout="centered")
 
-# ✅ Download model ONLY ONCE
-MODEL_PATH = "blood_group_model.h5"
+# ✅ Download TFLite model
+MODEL_PATH = "model.tflite"
 
 if not os.path.exists(MODEL_PATH):
-    url = "https://drive.google.com/uc?id=1dNT1snMYv5Nv8LOOk6VEShN_bhip_JG_"
+    url = "PASTE_YOUR_TFLITE_LINK_HERE"   # 🔥 replace with your tflite drive link
     gdown.download(url, MODEL_PATH, quiet=False)
 
-# ✅ Load model correctly
-model = tf.keras.models.load_model(MODEL_PATH)
+# ✅ Load TFLite model
+interpreter = tflite.Interpreter(model_path=MODEL_PATH)
+interpreter.allocate_tensors()
+
+input_details = interpreter.get_input_details()
+output_details = interpreter.get_output_details()
 
 # Load labels
 with open("labels.txt") as f:
@@ -33,17 +37,17 @@ st.markdown("---")
 col1, col2 = st.columns(2)
 
 with col1:
-    name = st.text_input(" Patient Name")
+    name = st.text_input("👤 Patient Name")
 
 with col2:
-    age = st.number_input(" Age", min_value=1, max_value=120)
+    age = st.number_input("🎂 Age", min_value=1, max_value=120)
 
-gender = st.selectbox(" Gender", ["Male", "Female", "Other"])
+gender = st.selectbox("⚧ Gender", ["Male", "Female", "Other"])
 
 st.markdown("---")
 
 # Upload
-uploaded_file = st.file_uploader(" Upload Fingerprint Image", type=["jpg", "png", "bmp"])
+uploaded_file = st.file_uploader("🖐 Upload Fingerprint Image", type=["jpg", "png", "bmp"])
 
 # Button
 if st.button("🔍 Predict Blood Group"):
@@ -52,7 +56,7 @@ if st.button("🔍 Predict Blood Group"):
         st.warning("Please fill all details and upload image")
 
     else:
-        # ✅ Convert to RGB
+        # Convert to RGB
         img = Image.open(uploaded_file).convert("RGB")
 
         col1, col2 = st.columns(2)
@@ -62,48 +66,50 @@ if st.button("🔍 Predict Blood Group"):
 
         img_array = np.array(img)
 
-        #  Quality check
+        # Quality check
         gray = cv2.cvtColor(img_array, cv2.COLOR_RGB2GRAY)
         brightness = np.mean(gray)
         blur = cv2.Laplacian(gray, cv2.CV_64F).var()
 
         with col2:
-            st.subheader(" Image Quality")
+            st.subheader("🔍 Image Quality")
             st.write(f"Brightness: {brightness:.2f}")
             st.write(f"Blur Score: {blur:.2f}")
 
             if brightness < 50:
-                st.warning(" Image too dark")
+                st.warning("⚠️ Image too dark")
             if blur < 100:
-                st.warning(" Image blurry")
+                st.warning("⚠️ Image blurry")
 
         # Preprocess
         img = img.resize((128,128))
         img_array = image.img_to_array(img)
         img_array = np.expand_dims(img_array, axis=0) / 255.0
 
-        # Prediction
-        prediction = model.predict(img_array)[0]
+        # ✅ TFLite Prediction
+        interpreter.set_tensor(input_details[0]['index'], img_array.astype('float32'))
+        interpreter.invoke()
+        prediction = interpreter.get_tensor(output_details[0]['index'])[0]
 
         best_idx = np.argmax(prediction)
         confidence = prediction[best_idx]
 
         st.markdown("---")
 
-        # 🧾 Result
+        # Result
         st.markdown("### 🧾 Result")
 
         st.success(f"🩸 Blood Group: {class_labels[best_idx]}")
         st.info(f"Confidence: {confidence*100:.2f}%")
 
-        st.write(f" Name: {name}")
-        st.write(f" Age: {age}")
-        st.write(f" Gender: {gender}")
+        st.write(f"👤 Name: {name}")
+        st.write(f"🎂 Age: {age}")
+        st.write(f"⚧ Gender: {gender}")
 
         if confidence < 0.6:
-            st.warning(" Model is not confident")
+            st.warning("⚠️ Model is not confident")
 
-        # 📄 TEXT REPORT
+        # Report
         report = f"""
 Patient Name: {name}
 Age: {age}
@@ -114,13 +120,13 @@ Confidence: {confidence*100:.2f}%
 """
 
         st.download_button(
-            label=" Download TXT Report",
+            label="📥 Download TXT Report",
             data=report,
             file_name="blood_group_report.txt",
             mime="text/plain"
         )
 
-        # 📑 PDF REPORT
+        # PDF
         pdf = FPDF()
         pdf.add_page()
         pdf.set_font("Arial", size=12)
@@ -137,3 +143,6 @@ Confidence: {confidence*100:.2f}%
             mime="application/pdf"
         )
 
+# Footer
+st.markdown("---")
+st.markdown("<center>⚠️ Educational purpose only | Not medically verified</center>", unsafe_allow_html=True)
