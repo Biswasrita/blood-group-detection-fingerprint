@@ -1,28 +1,32 @@
 import streamlit as st
 import numpy as np
 import cv2
-from tensorflow.keras.models import load_model
+import tensorflow as tf
 from tensorflow.keras.preprocessing import image
 from PIL import Image
 from fpdf import FPDF
-import io
 import gdown
+import os
 
 # Page config
 st.set_page_config(page_title="Blood Group Detection", layout="centered")
 
-# Load model
-url = "https://drive.google.com/uc?id=1dNT1snMYv5Nv8LOOk6VEShN_bhip_JG_"
-gdown.download(url, "blood_group_model.h5", quiet=False)
+# ✅ Download model ONLY ONCE
+MODEL_PATH = "blood_group_model.h5"
 
-model = load_model("blood_group_model.h5")
+if not os.path.exists(MODEL_PATH):
+    url = "https://drive.google.com/uc?id=1dNT1snMYv5Nv8LOOk6VEShN_bhip_JG_"
+    gdown.download(url, MODEL_PATH, quiet=False)
+
+# ✅ Load model correctly
+model = tf.keras.models.load_model(MODEL_PATH)
 
 # Load labels
 with open("labels.txt") as f:
     class_labels = [line.strip() for line in f.readlines()]
 
 # Title
-st.markdown("<h1 style='text-align: center;'> Blood Group Detection System</h1>", unsafe_allow_html=True)
+st.markdown("<h1 style='text-align: center;'>🧬 Blood Group Detection System</h1>", unsafe_allow_html=True)
 st.markdown("---")
 
 # 👤 Patient Info
@@ -42,13 +46,13 @@ st.markdown("---")
 uploaded_file = st.file_uploader(" Upload Fingerprint Image", type=["jpg", "png", "bmp"])
 
 # Button
-if st.button(" Predict Blood Group"):
+if st.button("🔍 Predict Blood Group"):
 
     if uploaded_file is None or name == "":
         st.warning("Please fill all details and upload image")
 
     else:
-        #  FIX: Convert to RGB
+        # ✅ Convert to RGB
         img = Image.open(uploaded_file).convert("RGB")
 
         col1, col2 = st.columns(2)
@@ -58,7 +62,7 @@ if st.button(" Predict Blood Group"):
 
         img_array = np.array(img)
 
-        # 🔍 Quality check
+        #  Quality check
         gray = cv2.cvtColor(img_array, cv2.COLOR_RGB2GRAY)
         brightness = np.mean(gray)
         blur = cv2.Laplacian(gray, cv2.CV_64F).var()
@@ -87,9 +91,9 @@ if st.button(" Predict Blood Group"):
         st.markdown("---")
 
         # 🧾 Result
-        st.markdown("###  Result")
+        st.markdown("### 🧾 Result")
 
-        st.success(f" Blood Group: {class_labels[best_idx]}")
+        st.success(f"🩸 Blood Group: {class_labels[best_idx]}")
         st.info(f"Confidence: {confidence*100:.2f}%")
 
         st.write(f" Name: {name}")
@@ -98,7 +102,6 @@ if st.button(" Predict Blood Group"):
 
         if confidence < 0.6:
             st.warning(" Model is not confident")
-
 
         # 📄 TEXT REPORT
         report = f"""
@@ -117,7 +120,7 @@ Confidence: {confidence*100:.2f}%
             mime="text/plain"
         )
 
-        # 📑 PDF REPORT (improved)
+        # 📑 PDF REPORT
         pdf = FPDF()
         pdf.add_page()
         pdf.set_font("Arial", size=12)
@@ -125,7 +128,6 @@ Confidence: {confidence*100:.2f}%
         for line in report.split("\n"):
             pdf.cell(200, 10, txt=line, ln=True)
 
-        # Save to memory (better than file)
         pdf_output = pdf.output(dest='S').encode('latin1')
 
         st.download_button(
