@@ -13,10 +13,13 @@ st.set_page_config(page_title="Blood Group Detection", layout="centered")
 # ================= MODEL =================
 MODEL_PATH = "model.tflite"
 
-if not os.path.exists(MODEL_PATH):
-    url = "PASTE_YOUR_TFLITE_LINK_HERE"   # 🔥 replace with your tflite link
-    gdown.download(url, MODEL_PATH, quiet=False)
+# 🔥 IMPORTANT: PUT YOUR REAL LINK HERE
+MODEL_URL = "https://drive.google.com/uc?id=PASTE_YOUR_ID_HERE"
 
+if not os.path.exists(MODEL_PATH):
+    gdown.download(MODEL_URL, MODEL_PATH, quiet=False)
+
+# Load model
 interpreter = tflite.Interpreter(model_path=MODEL_PATH)
 interpreter.allocate_tensors()
 
@@ -52,7 +55,6 @@ if st.button("🔍 Predict Blood Group"):
         st.warning("Please fill all details and upload image")
 
     else:
-        # Load image
         img = Image.open(uploaded_file).convert("RGB")
 
         col1, col2 = st.columns(2)
@@ -77,7 +79,7 @@ if st.button("🔍 Predict Blood Group"):
             if blur < 100:
                 st.warning("⚠️ Image blurry")
 
-        # ===== PREPROCESS (NO TENSORFLOW) =====
+        # ===== PREPROCESS =====
         img = img.resize((128, 128))
         img_array = np.array(img).astype("float32") / 255.0
         img_array = np.expand_dims(img_array, axis=0)
@@ -106,8 +108,7 @@ if st.button("🔍 Predict Blood Group"):
             st.warning("⚠️ Model is not confident")
 
         # ===== REPORT =====
-        report = f"""
-Patient Name: {name}
+        report = f"""Patient Name: {name}
 Age: {age}
 Gender: {gender}
 
@@ -139,6 +140,3 @@ Confidence: {confidence*100:.2f}%
             mime="application/pdf"
         )
 
-# Footer
-st.markdown("---")
-st.markdown("<center>⚠️ Educational purpose only | Not medically verified</center>", unsafe_allow_html=True)
