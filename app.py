@@ -2,13 +2,12 @@ import streamlit as st
 import numpy as np
 from PIL import Image
 import onnxruntime as ort
-import os
 
 st.set_page_config(page_title="Blood Group Detection", layout="centered")
 
 MODEL_PATH = "model.onnx"
 
-# Load ONNX model safely
+# Load ONNX model
 try:
     session = ort.InferenceSession(MODEL_PATH)
     input_name = session.get_inputs()[0].name
@@ -26,7 +25,6 @@ except:
 
 st.title("Blood Group Detection System")
 
-# User inputs
 name = st.text_input("Patient Name")
 age = st.number_input("Age", 1, 120)
 gender = st.selectbox("Gender", ["Male", "Female", "Other"])
@@ -41,15 +39,12 @@ if st.button("Predict"):
     else:
         try:
             img = Image.open(uploaded_file).convert("RGB")
-            st.image(img, caption="Uploaded Image", use_column_width=True)
+            st.image(img, caption="Uploaded Image")
 
-            # Resize (change if your model uses different size)
-            img = img.resize((128, 128))
-
+            img = img.resize((128, 128))  # keep same as training
             img_array = np.array(img).astype("float32") / 255.0
             img_array = np.expand_dims(img_array, axis=0)
 
-            # Prediction
             prediction = session.run(None, {input_name: img_array})[0][0]
 
             best_idx = int(np.argmax(prediction))
