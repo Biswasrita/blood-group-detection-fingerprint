@@ -3,5 +3,4 @@ numpy
 opencv-python-headless
 pillow
 fpdf
-gdown
 tensorflow
