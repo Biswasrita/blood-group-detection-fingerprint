@@ -1,35 +1,22 @@
 import streamlit as st
 import numpy as np
 from PIL import Image
+import onnxruntime as ort
 import os
 
 st.set_page_config(page_title="Blood Group Detection", layout="centered")
 
-MODEL_PATH = "model.tflite"
+MODEL_PATH = "model.onnx"
 
-# 🔥 Try tflite-runtime first, fallback if needed
+# Load ONNX model safely
 try:
-    import tflite_runtime.interpreter as tflite
-    interpreter = tflite.Interpreter(model_path=MODEL_PATH)
-except:
-    try:
-        from tensorflow.lite.python.interpreter import Interpreter
-        interpreter = Interpreter(model_path=MODEL_PATH)
-    except Exception as e:
-        st.error(f"Interpreter loading failed: {e}")
-        st.stop()
+    session = ort.InferenceSession(MODEL_PATH)
+    input_name = session.get_inputs()[0].name
+except Exception as e:
+    st.error(f"Model loading failed: {e}")
+    st.stop()
 
-interpreter.allocate_tensors()
-
-input_details = interpreter.get_input_details()
-output_details = interpreter.get_output_details()
-
-# Auto shape
-input_shape = input_details[0]['shape']
-height = input_shape[1]
-width = input_shape[2]
-
-# Labels
+# Load labels
 try:
     with open("labels.txt") as f:
         class_labels = [line.strip() for line in f.readlines()]
@@ -39,6 +26,7 @@ except:
 
 st.title("Blood Group Detection System")
 
+# User inputs
 name = st.text_input("Patient Name")
 age = st.number_input("Age", 1, 120)
 gender = st.selectbox("Gender", ["Male", "Female", "Other"])
@@ -55,15 +43,16 @@ if st.button("Predict"):
             img = Image.open(uploaded_file).convert("RGB")
             st.image(img, caption="Uploaded Image", use_column_width=True)
 
-            img = img.resize((width, height))
+            # Resize (change if your model uses different size)
+            img = img.resize((128, 128))
+
             img_array = np.array(img).astype("float32") / 255.0
             img_array = np.expand_dims(img_array, axis=0)
 
-            interpreter.set_tensor(input_details[0]['index'], img_array)
-            interpreter.invoke()
-            prediction = interpreter.get_tensor(output_details[0]['index'])[0]
+            # Prediction
+            prediction = session.run(None, {input_name: img_array})[0][0]
 
-            best_idx = np.argmax(prediction)
+            best_idx = int(np.argmax(prediction))
             confidence = float(prediction[best_idx])
 
             st.success(f"Blood Group: {class_labels[best_idx]}")
