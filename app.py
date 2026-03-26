@@ -1,32 +1,35 @@
 import streamlit as st
 import numpy as np
-import cv2
 from PIL import Image
-from fpdf import FPDF
 import os
-import tflite_runtime.interpreter as tflite
 
 st.set_page_config(page_title="Blood Group Detection", layout="centered")
 
 MODEL_PATH = "model.tflite"
 
-# Load model safely
+# 🔥 Try tflite-runtime first, fallback if needed
 try:
+    import tflite_runtime.interpreter as tflite
     interpreter = tflite.Interpreter(model_path=MODEL_PATH)
-    interpreter.allocate_tensors()
-except Exception as e:
-    st.error(f"Model loading failed: {e}")
-    st.stop()
+except:
+    try:
+        from tensorflow.lite.python.interpreter import Interpreter
+        interpreter = Interpreter(model_path=MODEL_PATH)
+    except Exception as e:
+        st.error(f"Interpreter loading failed: {e}")
+        st.stop()
+
+interpreter.allocate_tensors()
 
 input_details = interpreter.get_input_details()
 output_details = interpreter.get_output_details()
 
-# 🔥 Get correct input shape automatically (IMPORTANT FIX)
+# Auto shape
 input_shape = input_details[0]['shape']
 height = input_shape[1]
 width = input_shape[2]
 
-# Load labels
+# Labels
 try:
     with open("labels.txt") as f:
         class_labels = [line.strip() for line in f.readlines()]
@@ -36,7 +39,6 @@ except:
 
 st.title("Blood Group Detection System")
 
-# User inputs
 name = st.text_input("Patient Name")
 age = st.number_input("Age", 1, 120)
 gender = st.selectbox("Gender", ["Male", "Female", "Other"])
@@ -53,13 +55,10 @@ if st.button("Predict"):
             img = Image.open(uploaded_file).convert("RGB")
             st.image(img, caption="Uploaded Image", use_column_width=True)
 
-            # ✅ Use model input size (AUTO FIX)
             img = img.resize((width, height))
-
             img_array = np.array(img).astype("float32") / 255.0
             img_array = np.expand_dims(img_array, axis=0)
 
-            # Prediction
             interpreter.set_tensor(input_details[0]['index'], img_array)
             interpreter.invoke()
             prediction = interpreter.get_tensor(output_details[0]['index'])[0]
