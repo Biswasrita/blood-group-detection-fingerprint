@@ -3,28 +3,16 @@ import numpy as np
 import cv2
 from PIL import Image
 from fpdf import FPDF
-import gdown
 import os
 
-# IMPORTANT: use tensorflow instead of tflite_runtime
+# Use tensorflow lite interpreter
 from tensorflow.lite.python.interpreter import Interpreter
 
 st.set_page_config(page_title="Blood Group Detection", layout="centered")
 
 MODEL_PATH = "model.tflite"
-MODEL_URL = "PASTE_YOUR_TFLITE_LINK_HERE"   # must be direct download link
 
-# Download model if not exists
-if not os.path.exists(MODEL_PATH):
-    st.warning("Downloading model...")
-    try:
-        gdown.download(MODEL_URL, MODEL_PATH, quiet=False)
-        st.success("Model downloaded successfully")
-    except:
-        st.error("Model download failed. Check your link.")
-        st.stop()
-
-# Load model safely
+# Load model directly (no download needed)
 try:
     interpreter = Interpreter(model_path=MODEL_PATH)
     interpreter.allocate_tensors()
@@ -62,7 +50,7 @@ if st.button("Predict"):
             img = Image.open(uploaded_file).convert("RGB")
             st.image(img, caption="Uploaded Image", use_column_width=True)
 
-            # Preprocess
+            # Preprocess (IMPORTANT: adjust if model shape differs)
             img = img.resize((128,128))
             img_array = np.array(img).astype("float32") / 255.0
             img_array = np.expand_dims(img_array, axis=0)
