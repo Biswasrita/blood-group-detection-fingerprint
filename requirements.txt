@@ -1,6 +1,4 @@
 streamlit
 numpy
-opencv-python-headless
 pillow
-fpdf
 tflite-runtime==2.14.0
