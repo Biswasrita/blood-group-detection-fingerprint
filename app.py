@@ -51,7 +51,7 @@ if st.button("Predict"):
             confidence = float(prediction[best_idx])
 
             st.success(f"Blood Group: {class_labels[best_idx]}")
-            st.write(f"Confidence: {confidence*100:.2f}%")
+
 
         except Exception as e:
             st.error(f"Prediction failed: {e}")
