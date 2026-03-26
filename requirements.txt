@@ -3,4 +3,4 @@ numpy
 opencv-python-headless
 pillow
 fpdf
-tensorflow
+tflite-runtime==2.14.0
